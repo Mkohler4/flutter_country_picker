@@ -39,9 +39,15 @@ class CountryListView extends StatefulWidget {
   /// An optional argument for showing "World Wide" option at the beginning of the list
   final bool showWorldWide;
 
+  final Widget Function(Country country)? listItem;
+
+  final CountryCodeController? controller;
+
   const CountryListView({
     Key? key,
     required this.onSelect,
+    this.controller,
+    this.listItem,
     this.exclude,
     this.favorite,
     this.countryFilter,
@@ -66,6 +72,7 @@ class _CountryListViewState extends State<CountryListView> {
   late List<Country> _filteredList;
   List<Country>? _favoriteList;
   late TextEditingController _searchController;
+  Country? selectedCountry;
   late bool _searchAutofocus;
 
   @override
@@ -75,8 +82,7 @@ class _CountryListViewState extends State<CountryListView> {
 
     _countryList = _countryService.getAll();
 
-    _countryList =
-        countryCodes.map((country) => Country.from(json: country)).toList();
+    _countryList = countryCodes.map((country) => Country.from(json: country)).toList();
 
     //Remove duplicates country if not use phone code
     if (!widget.showPhoneCode) {
@@ -110,51 +116,31 @@ class _CountryListViewState extends State<CountryListView> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final String searchLabel =
-        CountryLocalizations.of(context)?.countryName(countryCode: 'search') ??
-            'Search';
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if(widget.controller != null){
+      widget.controller!._bind(this);
+    }
+  }
 
-    return Column(
-      children: <Widget>[
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: TextField(
-            autofocus: _searchAutofocus,
-            controller: _searchController,
-            decoration: widget.countryListTheme?.inputDecoration ??
-                InputDecoration(
-                  labelText: searchLabel,
-                  hintText: searchLabel,
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: const Color(0xFF8C98A8).withOpacity(0.2),
-                    ),
-                  ),
-                ),
-            onChanged: _filterSearchResults,
-          ),
-        ),
-        Expanded(
-          child: ListView(
-            children: [
-              if (_favoriteList != null) ...[
-                ..._favoriteList!
-                    .map<Widget>((currency) => _listRow(currency))
-                    .toList(),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Divider(thickness: 1),
-                ),
-              ],
-              ..._filteredList
-                  .map<Widget>((country) => _listRow(country))
-                  .toList(),
-            ],
-          ),
-        ),
+  @override
+  void dispose(){
+    super.dispose();
+    if(widget.controller != null){
+      widget.controller!.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        ..._filteredList.map<Widget>((country) => widget.listItem != null ? GestureDetector(
+          onTap: (){
+            widget.onSelect(country);
+          },
+          child: widget.listItem!(country)
+        ) : _listRow(country)).toList(),
       ],
     );
   }
@@ -201,10 +187,7 @@ class _CountryListViewState extends State<CountryListView> {
               ),
               Expanded(
                 child: Text(
-                  CountryLocalizations.of(context)
-                          ?.countryName(countryCode: country.countryCode)
-                          ?.replaceAll(RegExp(r"\s+"), " ") ??
-                      country.name,
+                  CountryLocalizations.of(context)?.countryName(countryCode: country.countryCode)?.replaceAll(RegExp(r"\s+"), " ") ?? country.name,
                   style: _textStyle,
                 ),
               )
@@ -255,4 +238,25 @@ class _CountryListViewState extends State<CountryListView> {
   }
 
   TextStyle get _defaultTextStyle => const TextStyle(fontSize: 16);
+}
+
+class CountryCodeController extends ChangeNotifier {
+  _CountryListViewState? _state;
+
+  CountryCodeController();
+
+  /// Bind to state
+  void _bind(_CountryListViewState bind) => _state = bind;
+
+  /// Notify listeners
+  void update() => _state != null ? notifyListeners() : null;
+
+  /// Get flag
+  Widget? flagWidget(Country country) => _state != null ? _state!._flagWidget(country) : null;
+
+  //Disposes of the controller
+  @override
+  void dispose() {
+    _state = null;
+  }
 }
