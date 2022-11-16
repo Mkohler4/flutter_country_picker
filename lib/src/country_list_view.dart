@@ -168,7 +168,7 @@ class _CountryListViewState extends State<CountryListView> {
           child: Row(
             children: <Widget>[
               Row(
-                children: [
+                children: [ 
                   const SizedBox(width: 20),
                   _flagWidget(country),
                   if (widget.showPhoneCode && !country.iswWorldWide) ...[
